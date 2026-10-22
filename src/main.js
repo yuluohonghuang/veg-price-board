@@ -392,12 +392,19 @@ function openDetail(id){
       <div style="font-size:10px;color:var(--sub);margin-top:4px">当前 ${p.v.toFixed(2)} · 区间 ${Math.min.apply(null,d.s1).toFixed(2)} ~ ${Math.max.apply(null,d.s1).toFixed(2)}</div>`:'<div style="font-size:10px;color:var(--sub);margin-top:4px">暂无趋势数据</div>'}</div>`;
   const ch=document.getElementById('mChart');
   ch.innerHTML='';
+  let chartInst=null;
   if(d.s1){
     try{ const c=echarts.init(ch);
-    c.setOption({animation:false,grid:{left:8,right:8,top:24,bottom:20,containLabel:true},
-      tooltip:{trigger:'axis',formatter:p=>'<b>'+p[0].name+'</b> · '+p[0].value.toFixed(2)+' 元/500克'},
-      xAxis:{type:'category',data:d.s1.map((x,i)=>'第'+(i+1)+'周'),axisLabel:{color:'#93A3BC',fontSize:9,interval:12},axisLine:{lineStyle:{color:'#22304A'}}},
+    chartInst=c;
+    const N=d.s1.length;
+    c.setOption({animation:false,grid:{left:8,right:8,top:26,bottom:26,containLabel:true},
+      tooltip:{trigger:'axis',axisPointer:{type:'cross',label:{backgroundColor:'#22304A',color:'#E8F0FE',fontSize:10}},
+        formatter:ps=>'<b>'+ps[0].name+'</b> · '+ps[0].value.toFixed(2)+' 元/500克'},
+      xAxis:{type:'category',data:d.s1.map((x,i)=>'第'+(i+1)+'周'),axisLabel:{color:'#93A3BC',fontSize:9,interval:N>30?10:6},axisLine:{lineStyle:{color:'#22304A'}}},
       yAxis:{type:'value',scale:true,axisLabel:{color:'#93A3BC',fontSize:10},splitLine:{lineStyle:{color:'#18233A'}}},
+      dataZoom:[{type:'inside',start:0,end:100,zoomOnMouseWheel:true,moveOnMouseMove:true,moveOnTouchMove:true},
+        {type:'slider',height:14,bottom:4,start:0,end:100,show:N>26,brushSelect:false,
+         borderColor:'#22304A',backgroundColor:'#141E33',fillerColor:'rgba(73,192,240,.18)',handleStyle:{color:'#49C0F0'},textStyle:{color:'#93A3BC',fontSize:9}}],
       series:[{type:'line',data:d.s1,smooth:true,symbol:'none',lineStyle:{width:2,color:p.t==='d'?'#6B5A2A':'#3CCF8E'},areaStyle:{color:'rgba(60,207,142,.12)'},
         markPoint:{symbol:'pin',symbolSize:12,label:{show:false},data:[{type:'max',name:'高',itemStyle:{color:'#FF5C5C'}},{type:'min',name:'低',itemStyle:{color:'#3CCF8E'}}]}}]});
     }catch(e){}
@@ -409,6 +416,7 @@ function openDetail(id){
     (p.t==='d'?'该品种暂无杭州官方监测数据，当前价为全国参考演示值，周环比与趋势为模拟序列；':'')+
     '<br>曲线含义：价格走势（演示品种为按季节波动的模拟序列，正式版接入官方逐日/周监测后展示真实曲线）；红标=区间最高价、绿标=区间最低价；位置%=当前价在 min~max 区间的相对高度，仅作"贵不贵"参考。';
   $('#mask').hidden=false;
+  if(chartInst){ setTimeout(()=>{ try{ chartInst.resize(); }catch(e){} },60); }
 }
 
 /* ---- 展示地区 UI ---- */
