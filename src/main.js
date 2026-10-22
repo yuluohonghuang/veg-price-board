@@ -1,6 +1,7 @@
 import hbSDK from '@heybox/hb-sdk';
 import * as echarts from 'echarts';
 import { PROV_DATA } from './province_data.js';
+import { EXDATA } from './extra_data.js';
 window.echarts = echarts;
 window.__hbStorage = hbSDK && hbSDK.storage || null;
 if (window.__hbStorage && window.__hbStorage.setStorage) {
@@ -107,13 +108,8 @@ const DATA = {
   ],
   /* 商务部全国大米零售（元/公斤，周更 2025-10-24 ~ 2026-10-09）真实序列 */
   rice: {v:6.42, unit:'元/公斤', series:[6.56,6.56,6.56,6.56,6.56,6.55,6.54,6.54,6.53,6.53,6.52,6.52,6.52,6.51,6.50,6.51,6.50,6.50,6.48,6.46,6.45,6.45,6.46,6.47,6.48,6.48,6.47,6.48,6.47,6.47,6.46,6.46,6.46,6.46,6.44,6.44,6.43,6.44,6.42,6.41,6.41,6.41,6.40,6.41,6.40,6.41,6.41,6.42,6.43,6.42,6.42]},
-  /* 农业农村部官方每日快讯整理的指数序列（交易日口径，2026-09-30 ~ 10-19） */
-  idx: {
-    date:['9-30','10-08','10-09','10-10','10-12','10-13','10-14','10-15','10-16','10-19'],
-    p200:[115.36,114.83,114.78,114.19,114.06,113.93,113.48,113.32,112.88,112.33],
-    basket:[115.58,null,null,null,null,null,null,null,112.75,112.04],
-    grain:[114.04,null,null,null,null,null,null,null,null,114.08]
-  }
+  /* 农业农村部官方指数序列（ncpscxx 接口 + scs 每日行情稿累积，EXDATA 自动生成） */
+  idx: EXDATA.idx
 };
 
 /* ---- 工具 ---- */
@@ -479,18 +475,31 @@ $('#cats').addEventListener('click',e=>{
   b.classList.add('on'); cat=b.dataset.c||''; render();
 });
 
-/* 指数走势（真实点：仅200指数数据完整，菜篮子/粮油点太少不画曲线） */
+/* 指数走势（农业农村部官方日度序列，ncpscxx 接口自动累积；点数<2 的指数不画） */
 try{(function(){
   const c=echarts.init(document.getElementById('idxChart'));
   const D=DATA.idx;
+  const SERIES_DEF=[
+    {k:'p200',n:'200指数',c:'#49C0F0'},{k:'basket',n:'菜篮子',c:'#F7C948'},
+    {k:'grainOil',n:'粮油',c:'#3CCF8E'},{k:'grain',n:'粮食',c:'#B48EFF'},
+    {k:'oil',n:'食用油',c:'#A8D87A'},{k:'veg',n:'蔬菜',c:'#7B9EFF'},
+    {k:'animal',n:'畜产',c:'#FF7B9C'},{k:'aqua',n:'水产',c:'#4DD6C8'},
+    {k:'fruit',n:'水果',c:'#FFB86B'}
+  ];
+  const series=[];
+  SERIES_DEF.forEach(s=>{
+    const arr=(D[s.k]||[]).filter(v=>v!=null);
+    if(arr.length<2) return;
+    series.push({name:s.n,type:'line',data:D[s.k],smooth:true,symbol:'circle',symbolSize:3.5,
+      lineStyle:{width:1.6,color:s.c},itemStyle:{color:s.c},
+      label:{show:false},
+      markPoint:s.k==='p200'?{symbol:'pin',symbolSize:12,label:{show:false},data:[{type:'max',name:'高',itemStyle:{color:'#FF5C5C'}},{type:'min',name:'低',itemStyle:{color:'#3CCF8E'}}]}:undefined});
+  });
   c.setOption({animation:false,grid:{left:6,right:6,top:14,bottom:18,containLabel:true},
-    tooltip:{trigger:'axis',formatter:p=>'<b>'+p[0].name+'</b> · '+p[0].value},
+    tooltip:{trigger:'axis',formatter:ps=>'<b>'+ps[0].name+'</b><br/>'+ps.map(p=>p.seriesName+' '+ (p.value==null?'-':p.value)).join('<br/>')},
     xAxis:{type:'category',data:D.date,axisLabel:{color:'#93A3BC',fontSize:9},axisLine:{lineStyle:{color:'#22304A'}}},
     yAxis:{type:'value',scale:true,axisLabel:{color:'#93A3BC',fontSize:9},splitLine:{lineStyle:{color:'#18233A'}}},
-    series:[{name:'200指数',type:'line',data:D.p200,smooth:true,symbol:'circle',symbolSize:5,
-      lineStyle:{width:2,color:'#49C0F0'},itemStyle:{color:'#49C0F0'},
-      label:{show:true,position:'top',fontSize:9,color:'#93A3BC',formatter:p=>p.value==null?'':p.value},
-      markPoint:{symbol:'pin',symbolSize:12,label:{show:false},data:[{type:'max',name:'高',itemStyle:{color:'#FF5C5C'}},{type:'min',name:'低',itemStyle:{color:'#3CCF8E'}}]}}]});
+    series:series});
 })();}catch(e){}
 
 /* 大米零售走势（真实） */

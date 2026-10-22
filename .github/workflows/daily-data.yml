@@ -39,10 +39,17 @@ jobs:
       - name: Fetch snapshot + accumulate history
         run: python -u fetch_province_history.py
 
-      - name: Regenerate province data
+      - name: Fetch national daily (indexes + market digest)
+        run: python -u fetch_national_daily.py
+
+      - name: Fetch Mofcom weekly retail (best-effort)
+        run: python -u fetch_cif_retail.py || echo "CIF fetch failed, keep last week"
+
+      - name: Regenerate data files
         run: |
           python -u make_province_data.py
           python -u make_remote_json.py
+          python -u make_extra_data.py
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -59,7 +66,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/ src/province_data.js
+          git add data/ src/
           if ! git diff --cached --quiet; then
             git commit -m "daily data update $(date -u +%Y-%m-%d)"
             git push
