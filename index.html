@@ -158,17 +158,17 @@
   <div class="trend">
     <h2>全国总体趋势 <span class="tag hz">官方监测</span></h2>
     <div class="src">数据：农业农村部「农产品批发价格200指数」（每日发布）＋商务部全国36城零售均价（周更）｜以下曲线为官方每日快讯整理，交易日口径</div>
-    <div class="idx">
-      <div class="it"><div class="k">农产品批发价格200指数</div><div class="v">112.33</div><div class="chg down">-0.52 较上周五</div></div>
-      <div class="it"><div class="k">"菜篮子"产品指数</div><div class="v">112.04</div><div class="chg down">-0.61</div></div>
-      <div class="it"><div class="k">粮油产品指数</div><div class="v">114.08</div><div class="chg up">+0.05</div></div>
+    <div class="idx" id="idxCards">
+      <div class="it"><div class="k">农产品批发价格200指数</div><div class="v">--</div><div class="chg">--</div></div>
+      <div class="it"><div class="k">"菜篮子"产品指数</div><div class="v">--</div><div class="chg">--</div></div>
+      <div class="it"><div class="k">粮油产品指数</div><div class="v">--</div><div class="chg">--</div></div>
     </div>
     <div class="explain">
       <b>这三个指数怎么看：</b>它们衡量「全国批发市场整体菜价水平」。以2014年为基准100——<b>指数大于100＝整体价格高于2014年基准，指数越高越贵</b>；每日变动即当天整体价格较前一交易日的涨跌。<br>
       <b>参考价值：</b>判断「全国家常菜整体是贵了还是便宜了」最直接的官方指标。200指数覆盖全国200个重点批发市场全品类；「菜篮子」只看蔬菜水果肉蛋奶水产；「粮油」只看米面油。想看自己城市的实际零售价，请看下方品种卡的「杭州真实」数据；指数用于看全国大方向。
     </div>
     <div class="charts">
-      <div class="tcard"><div class="t">200指数近一个月走势 <small>· 官方每日快讯（9-30 ~ 10-19）</small></div><div id="idxChart"></div></div>
+      <div class="tcard"><div class="t">200指数近一个月走势 <small id="idxRange">· 官方每日</small></div><div id="idxChart"></div></div>
       <div class="tcard"><div class="t">全国大米零售价走势 <small>· 商务部周更（元/公斤）</small></div><div id="riceChart"></div></div>
     </div>
   </div>

@@ -475,6 +475,24 @@ $('#cats').addEventListener('click',e=>{
   b.classList.add('on'); cat=b.dataset.c||''; render();
 });
 
+/* 指数大数字卡 + 图表日期范围（EXDATA 真实数据） */
+try{
+  const N=EXDATA.nat, D=EXDATA.idx;
+  const lastOf=k=>{const a=(D[k]||[]).filter(v=>v!=null);return a.length?a[a.length-1]:null;};
+  const cards=document.querySelectorAll('#idxCards .it');
+  const rows=[[N.p200,N.p200_chg],[N.basket,N.basket_chg],[lastOf('grainOil'),null]];
+  cards.forEach((c,i)=>{
+    const v=rows[i][0], chg=rows[i][1];
+    if(v!=null){ c.querySelector('.v').textContent=(+v).toFixed(2);
+      const e=c.querySelector('.chg');
+      if(chg!=null){ e.textContent=(chg>=0?'+':'')+chg.toFixed(2)+' 较昨日'; e.className='chg '+(chg>=0?'up':'down'); }
+      else { e.textContent='--'; e.className='chg'; }
+    }
+  });
+  const range=document.getElementById('idxRange');
+  if(range&&D.date&&D.date.length){ range.textContent='· 官方每日（'+D.date[0]+' ~ '+D.date[D.date.length-1]+'）'; }
+}catch(e){}
+
 /* 指数走势（农业农村部官方日度序列，ncpscxx 接口自动累积；点数<2 的指数不画） */
 try{(function(){
   const c=echarts.init(document.getElementById('idxChart'));
