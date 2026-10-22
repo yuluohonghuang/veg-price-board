@@ -3,6 +3,18 @@ name: Daily Veg Price Data
 # 每天北京 02:30 错峰抓取（UTC 18:30），避开发改委/农业农村部早高峰
 # 数据源空窗或限流时脚本快速退出，次日自动重试；支持手动触发测试
 on:
+  # 代码/脚本变更时立即跑一次（数据回写 commit 不触发，避免死循环）
+  push:
+    branches: [main]
+    paths:
+      - '*.py'
+      - 'requirements.txt'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.js'
+      - 'src/main.js'
+      - 'index.html'
+      - '.github/workflows/daily-data.yml'
   schedule:
     - cron: '30 18 * * *'
   workflow_dispatch:
