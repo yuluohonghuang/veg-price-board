@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>菜篮子价格 · 趋势与位置</title>
+<style>
+  :root{
+    --bg:#0B1220; --card:#131C2E; --line:#22304A; --tx:#E8EDF6; --sub:#93A3BC;
+    --green:#3CCF8E; --red:#FF5C5C; --amber:#FFB020; --blue:#49C0F0;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--tx);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 60px)}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 16px}
+  header{position:sticky;top:0;z-index:10;background:rgba(11,18,32,.96);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+  .top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:calc(env(safe-area-inset-top, 0px) + 64px) 0 8px}
+  h1{font-size:19px;font-weight:700}
+  .sub{font-size:11px;color:var(--sub)}
+  .sort{margin-left:auto;display:flex;gap:6px}
+  .sortline{display:flex;justify-content:flex-end;padding:0 0 10px;margin-top:-2px}
+  .sbtn{padding:6px 12px;border-radius:20px;border:1px solid var(--line);background:var(--card);color:var(--sub);font-size:12px;cursor:pointer}
+  .sbtn.on{background:var(--amber);border-color:var(--amber);color:#04211A;font-weight:700}
+  .search{display:flex;gap:10px;align-items:center;padding:10px 0}
+  .alpha{display:flex;gap:2px;flex-wrap:wrap}
+  .alpha button{width:26px;height:26px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--sub);font-size:11px;cursor:pointer}
+  .alpha button.on{background:var(--blue);color:#04211A;font-weight:700}
+  .alpha button.all{width:auto;padding:0 8px}
+  input{flex:1;min-width:160px;padding:9px 14px;border-radius:20px;border:1px solid var(--line);background:var(--card);color:var(--tx);font-size:14px;outline:none}
+  input::placeholder{color:#5B6B8C}
+  .cats{display:flex;gap:6px;flex-wrap:wrap;padding:2px 0 10px}
+  .catb{padding:5px 14px;border-radius:16px;border:1px solid var(--line);background:var(--card);color:var(--sub);font-size:12px;cursor:pointer}
+  .catb.on{background:var(--green);border-color:var(--green);color:#04211A;font-weight:700}
+  .bar{margin:2px 0 12px;font-size:11px;color:var(--sub)}
+  /* ===== 顶部大看板 ===== */
+  .hero{background:linear-gradient(135deg,#12203A,#131C2E);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+  .hero .tabs{display:flex;gap:8px;margin-bottom:12px}
+  .hero .tab{padding:6px 14px;border-radius:16px;border:1px solid var(--line);background:#0F1830;color:var(--sub);font-size:12px;cursor:pointer}
+  .hero .tab.on{background:var(--blue);border-color:var(--blue);color:#04211A;font-weight:700}
+  .volgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+  .volcard{background:#0F1830;border-radius:12px;padding:12px;position:relative}
+  .volcard .k{font-size:11px;color:var(--sub)}
+  .volcard .n{font-size:14px;font-weight:700;margin:2px 0}
+  .volcard .row{display:flex;align-items:flex-end;gap:10px;margin-top:4px}
+  .volcard .v{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+  .volcard .v small{font-size:10px;color:var(--sub);font-weight:400}
+  .volcard .volt{font-size:12px;font-weight:700;margin-bottom:4px}
+  .volcard .vp{display:flex;gap:14px;font-size:11px;color:var(--sub);margin:6px 0 2px}
+  .volcard .vp b{font-weight:800}
+  .volcard svg{width:100%;height:34px;display:block;margin-top:6px}
+  .special{display:grid;grid-template-columns:280px 1fr;gap:14px;align-items:center}
+  .special .num{background:#0F1830;border-radius:12px;padding:14px}
+  .special .num .k{font-size:11px;color:var(--sub)}
+  .special .num .v{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;margin:4px 0 8px}
+  .special .pos2{display:flex;gap:8px;font-size:12px;color:var(--sub)}
+  .special .pos2 b{color:var(--amber)}
+  .spEmpty{background:#0F1830;border-radius:12px;padding:18px;color:var(--sub);font-size:13px;line-height:1.8}
+  /* ===== 全国趋势 ===== */
+  .trend{background:linear-gradient(135deg,#12203A,#131C2E);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:18px}
+  .trend h2{font-size:15px;margin-bottom:2px}
+  .trend .src{font-size:10px;color:#5B6B8C;margin-top:2px}
+  .explain{font-size:11px;color:var(--sub);line-height:1.8;margin-top:8px;background:#0F1830;border-radius:10px;padding:10px 12px}
+  .explain b{color:var(--tx)}
+  .idx{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:12px 0 6px}
+  .idx .it{background:#0F1830;border-radius:10px;padding:10px}
+  .idx .k{font-size:11px;color:var(--sub)}
+  .idx .v{font-size:21px;font-weight:800;margin-top:2px;font-variant-numeric:tabular-nums}
+  .idx .chg{font-size:11px;font-weight:700}
+  .up{color:var(--red)} .down{color:var(--green)} .flat{color:var(--sub)}
+  .charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px}
+  .tcard{background:#0F1830;border-radius:10px;padding:12px}
+  .tcard .t{font-size:12px;font-weight:700;margin-bottom:6px}
+  .tcard .t small{font-weight:400;color:var(--sub);font-size:10px}
+  #idxChart,#riceChart{height:150px}
+  @media(max-width:640px){ .charts{grid-template-columns:1fr} .special{grid-template-columns:1fr} }
+  /* ===== 品种卡片 ===== */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+  .group-t{font-size:13px;font-weight:700;color:var(--amber);margin:6px 0 8px;display:flex;align-items:center;gap:6px}
+  .group-t:after{content:'';flex:1;height:1px;background:var(--line)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;cursor:pointer;transition:border-color .15s}
+  .card:hover{border-color:var(--amber)}
+  .card .hd{display:flex;align-items:baseline;gap:8px}
+  .card .hd b{font-size:15px}
+  .tag{font-size:10px;color:var(--sub);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+  .tag.hz{border-color:#2A6B4F;color:var(--green)}
+  .tag.d{color:var(--amber);border-color:#6B5A2A}
+  .star{cursor:pointer;margin-left:auto;border:none;background:none;line-height:1;padding:2px;display:flex;gap:1px}
+  .star svg{width:15px;height:15px;display:block}
+  .star .s1,.star .s2{fill:#3A4A6B;stroke:#5B6B8C;stroke-width:1}
+  .star.lv1 .s1,.star.lv2 .s1,.star.lv2 .s2{fill:var(--amber);stroke:var(--amber)}
+  .row1{display:flex;align-items:flex-end;gap:14px;margin:8px 0 4px}
+  .price{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
+  .price small{font-size:11px;color:var(--sub);font-weight:400}
+  .chg{font-size:12px;font-weight:700;margin-bottom:4px}
+  .chg .wabs{font-size:10px;font-weight:600;opacity:.72;white-space:nowrap}
+  .spark{width:92px;height:36px;margin-left:auto;display:block}
+  .pos{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+  .pos .it{background:#0F1830;border-radius:8px;padding:7px 9px}
+  .pos .k{font-size:10px;color:var(--sub)}
+  .pos .v{font-size:13px;font-weight:800;margin-top:2px;font-variant-numeric:tabular-nums}
+  .track{height:5px;border-radius:3px;background:#22304A;margin-top:4px;position:relative}
+  .track i{position:absolute;top:-2px;width:9px;height:9px;border-radius:50%;background:var(--amber);transform:translateX(-50%)}
+  .mask{position:fixed;inset:0;background:rgba(4,8,16,.72);z-index:30;display:flex;align-items:center;justify-content:center;padding:16px}
+  .mask[hidden]{display:none}
+  .modal{background:var(--card);border:1px solid var(--line);border-radius:16px;max-width:660px;width:100%;max-height:86vh;overflow:auto;padding:20px}
+  .modal h2{font-size:18px}
+  .modal .close{float:right;border:none;background:none;color:var(--sub);font-size:20px;cursor:pointer}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
+  .two .it{background:#0F1830;border-radius:10px;padding:12px}
+  .two .k{font-size:11px;color:var(--sub)}
+  .two .v{font-size:22px;font-weight:800;margin:4px 0 6px;font-variant-numeric:tabular-nums}
+  .track.big{height:8px}
+  .track.big i{width:13px;height:13px;top:-3px}
+  .chart{width:100%;height:200px}
+  .note{font-size:11px;color:#5B6B8C;line-height:1.7;margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
+  .specbtn{margin-top:12px;padding:8px 16px;border-radius:18px;border:1px solid var(--blue);background:transparent;color:var(--blue);font-size:12px;cursor:pointer}
+  .specbtn.on{background:var(--blue);color:#04211A;font-weight:700}
+  .specbtn[disabled]{opacity:.4;cursor:not-allowed}
+  #regionBtn{display:flex;align-items:center;gap:4px}
+  .rgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0 4px}
+  .rcard{background:#0F1830;border:1px solid var(--line);border-radius:12px;padding:12px;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:5px;transition:border-color .15s}
+  .rcard:hover{border-color:var(--blue)}
+  .rcard.on{border-color:var(--blue);background:#10243F}
+  .rcard b{font-size:14px;color:var(--tx)}
+  .rcard small{font-size:10px;color:var(--sub);line-height:1.5}
+  .pgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
+  .pgrid .rcard{padding:8px 6px;align-items:center;gap:2px}
+  .pgrid .rcard b{font-size:12px}
+  .pgrid .rcard small{font-size:9px}
+  @media(max-width:560px){ .grid{grid-template-columns:1fr} .price{font-size:21px} }
+</style>
+</head>
+<body>
+<header><div class="wrap top">
+  <div><h1>菜篮子价格 · 趋势与位置</h1><div class="sub" id="meta">全国趋势 + 全品种 · 单位：元/500克（全国零售为元/公斤换算）</div></div>
+  <button class="sbtn" id="regionBtn" title="切换展示地区">📍 <span id="regionName">杭州</span> ▾</button>
+</div></header>
+
+<div class="wrap sortline">
+  <div class="sort">
+    <button class="sbtn on" data-s="cat">按分类</button>
+    <button class="sbtn" data-s="pos">位置：贵→便宜</button>
+    <button class="sbtn" data-s="chg">周环比：涨→跌</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <!-- ===== 顶部大看板 ===== -->
+  <div class="hero">
+    <div class="tabs">
+      <button class="tab on" data-h="vol">数据波动最大</button>
+      <button class="tab" data-h="spec">特别关注</button>
+    </div>
+    <div id="heroVol" class="volgrid"></div>
+    <div id="heroSpec" style="display:none"></div>
+  </div>
+
+  <!-- ===== 全国总体趋势 ===== -->
+  <div class="trend">
+    <h2>全国总体趋势 <span class="tag hz">官方监测</span></h2>
+    <div class="src">数据：农业农村部「农产品批发价格200指数」（每日发布）＋商务部全国36城零售均价（周更）｜以下曲线为官方每日快讯整理，交易日口径</div>
+    <div class="idx">
+      <div class="it"><div class="k">农产品批发价格200指数</div><div class="v">112.33</div><div class="chg down">-0.52 较上周五</div></div>
+      <div class="it"><div class="k">"菜篮子"产品指数</div><div class="v">112.04</div><div class="chg down">-0.61</div></div>
+      <div class="it"><div class="k">粮油产品指数</div><div class="v">114.08</div><div class="chg up">+0.05</div></div>
+    </div>
+    <div class="explain">
+      <b>这三个指数怎么看：</b>它们衡量「全国批发市场整体菜价水平」。以2014年为基准100——<b>指数大于100＝整体价格高于2014年基准，指数越高越贵</b>；每日变动即当天整体价格较前一交易日的涨跌。<br>
+      <b>参考价值：</b>判断「全国家常菜整体是贵了还是便宜了」最直接的官方指标。200指数覆盖全国200个重点批发市场全品类；「菜篮子」只看蔬菜水果肉蛋奶水产；「粮油」只看米面油。想看自己城市的实际零售价，请看下方品种卡的「杭州真实」数据；指数用于看全国大方向。
+    </div>
+    <div class="charts">
+      <div class="tcard"><div class="t">200指数近一个月走势 <small>· 官方每日快讯（9-30 ~ 10-19）</small></div><div id="idxChart"></div></div>
+      <div class="tcard"><div class="t">全国大米零售价走势 <small>· 商务部周更（元/公斤）</small></div><div id="riceChart"></div></div>
+    </div>
+  </div>
+
+  <div class="search">
+    <div class="alpha" id="alphaBar"><button class="all on" data-a="">全部</button></div>
+    <input id="kw" placeholder="输入品种名 / 首字母，如：香蕉、xj">
+  </div>
+  <div class="cats" id="cats"></div>
+  <div class="bar" id="countBar"></div>
+  <div id="grouped"></div>
+</div>
+
+<div class="mask" id="regionMask" hidden><div class="modal">
+  <button class="close" id="regionClose">×</button>
+  <h2>展示地区</h2>
+  <div class="sub" style="margin-top:4px">优先展示离你最近、最接近购买的价格口径</div>
+  <div class="rgrid">
+    <button class="rcard" data-r="auto"><b>自动定位</b><small>按 IP 大致定位到省市，展示当地价格</small></button>
+    <button class="rcard" data-r="hz"><b>杭州</b><small>本地官方零售价（发改委，真实）</small></button>
+    <button class="rcard" data-r="nation"><b>全国</b><small>统一参考口径（全国零售/批发）</small></button>
+  </div>
+  <div class="sub" style="margin-top:14px">省级价格（农业农村部定点批发市场当日价 · 折算零售）</div>
+  <div class="pgrid">
+    <button class="rcard" data-r="bj"><b>北京</b></button>
+    <button class="rcard" data-r="tj"><b>天津</b></button>
+    <button class="rcard" data-r="heb"><b>河北</b></button>
+    <button class="rcard" data-r="sxs"><b>山西</b></button>
+    <button class="rcard" data-r="nmg"><b>内蒙古</b></button>
+    <button class="rcard" data-r="ln"><b>辽宁</b></button>
+    <button class="rcard" data-r="jl"><b>吉林</b></button>
+    <button class="rcard" data-r="hlj"><b>黑龙江</b></button>
+    <button class="rcard" data-r="sh"><b>上海</b></button>
+    <button class="rcard" data-r="js"><b>江苏</b></button>
+    <button class="rcard" data-r="zj"><b>浙江</b></button>
+    <button class="rcard" data-r="ah"><b>安徽</b></button>
+    <button class="rcard" data-r="fj"><b>福建</b></button>
+    <button class="rcard" data-r="jx"><b>江西</b></button>
+    <button class="rcard" data-r="sd"><b>山东</b></button>
+    <button class="rcard" data-r="hen"><b>河南</b></button>
+    <button class="rcard" data-r="hub"><b>湖北</b></button>
+    <button class="rcard" data-r="hun"><b>湖南</b></button>
+    <button class="rcard" data-r="gd"><b>广东</b></button>
+    <button class="rcard" data-r="gx"><b>广西</b></button>
+    <button class="rcard" data-r="hain"><b>海南</b></button>
+    <button class="rcard" data-r="cq"><b>重庆</b></button>
+    <button class="rcard" data-r="sc"><b>四川</b></button>
+    <button class="rcard" data-r="gz"><b>贵州</b></button>
+    <button class="rcard" data-r="yn"><b>云南</b></button>
+    <button class="rcard" data-r="xz"><b>西藏</b></button>
+    <button class="rcard" data-r="sx"><b>陕西</b></button>
+    <button class="rcard" data-r="gs"><b>甘肃</b></button>
+    <button class="rcard" data-r="qh"><b>青海</b></button>
+    <button class="rcard" data-r="nx"><b>宁夏</b></button>
+    <button class="rcard" data-r="xj"><b>新疆</b></button>
+  </div>
+  <div class="note">选择会记录在本机，下次打开自动使用。<br>省级为当日批发价折算零售（口径见页面顶部说明）；定位到杭州以外的地区时，先展示全国参考口径。</div>
+</div></div>
+
+<div class="mask" id="mask" hidden><div class="modal">
+  <button class="close" id="close">×</button>
+  <h2 id="mName"></h2>
+  <div class="sub" id="mCat" style="margin-top:4px"></div>
+  <button class="specbtn" id="mSpecBtn">设为特别关注</button>
+  <div class="two" id="mTwo"></div>
+  <div id="mChart" class="chart"></div>
+  <div class="note" id="mNote"></div>
+</div></div>
+
+<script type="module" src="/src/main.js"></script>
+
+</body>
+</html>

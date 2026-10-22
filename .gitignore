@@ -1,0 +1,11 @@
+# 敏感凭据（绝不入库）
+.github_token
+
+# 构建产物与依赖
+node_modules/
+dist/
+
+# 一次性探索/调试脚本
+probe_*.py
+diag_*.py
+_migrate.py

@@ -1,0 +1,61 @@
+name: Daily Veg Price Data
+
+# 每天北京 02:30 错峰抓取（UTC 18:30），避开发改委/农业农村部早高峰
+# 数据源空窗或限流时脚本快速退出，次日自动重试；支持手动触发测试
+on:
+  schedule:
+    - cron: '30 18 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+
+      - name: Fetch snapshot + accumulate history
+        run: python -u fetch_province_history.py
+
+      - name: Regenerate province data
+        run: |
+          python -u make_province_data.py
+          python -u make_remote_json.py
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install npm deps
+        run: npm ci
+
+      - name: Build dist
+        run: npm run build
+
+      - name: Commit data back to repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/ src/province_data.js
+          if ! git diff --cached --quiet; then
+            git commit -m "daily data update $(date -u +%Y-%m-%d)"
+            git push
+          else
+            echo "no data change, skip commit"
+          fi
+
+      - name: Push remote JSON to veg-price-data
+        env:
+          GITHUB_VEG_TOKEN: ${{ secrets.VEG_DATA_PUSH }}
+        run: python -u push_remote_json.py

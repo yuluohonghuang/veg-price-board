@@ -1,0 +1,41 @@
+{
+  "name": "veg-price-board",
+  "version": "0.1.4",
+  "private": true,
+  "type": "module",
+  "heybox": {
+    "name": "菜篮子",
+    "category": "tool",
+    "icon": "assets/veg-icon-200.png",
+    "coverImages": [
+      "assets/veg-cover.png"
+    ],
+    "platforms": [
+      "android",
+      "ios",
+      "ohos",
+      "windows",
+      "macos"
+    ],
+    "permissions": {
+      "network": {
+        "enabled": true,
+        "useOfficialDomain": false
+      }
+    },
+    "miniProgramId": "01a1582b-b426-74c4-8db8-8e008cc5b849"
+  },
+  "scripts": {
+    "hb-sdk": "hb-sdk",
+    "dev": "hb-sdk dev",
+    "build": "hb-sdk build",
+    "deploy": "hb-sdk remote deploy"
+  },
+  "dependencies": {
+    "@heybox/hb-sdk": "^0.9.1",
+    "echarts": "^5.5.0"
+  },
+  "devDependencies": {
+    "vite": "^8.0.12"
+  }
+}
