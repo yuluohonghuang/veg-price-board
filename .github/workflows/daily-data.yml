@@ -57,7 +57,9 @@ jobs:
           node-version: 20
 
       - name: Install npm deps
-        run: npm ci
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install --no-audit --no-fund --no-package-lock
 
       - name: Build dist
         run: npm run build
