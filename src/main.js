@@ -364,6 +364,7 @@ function renderHero(){
   }
 }
 
+let detailChart=null; // 详情弹窗图表实例（全局持有，切换品种前 dispose，避免复用已清空 canvas 的旧实例导致曲线空白）
 function openDetail(id){
   const p=byId(id), d=prep(p);
   const hasWk=p.wk!=null;
@@ -391,11 +392,12 @@ function openDetail(id){
       ${d.s1?`<div class="track big"><i style="left:${d.pos1}%"></i></div>
       <div style="font-size:10px;color:var(--sub);margin-top:4px">当前 ${p.v.toFixed(2)} · 区间 ${Math.min.apply(null,d.s1).toFixed(2)} ~ ${Math.max.apply(null,d.s1).toFixed(2)}</div>`:'<div style="font-size:10px;color:var(--sub);margin-top:4px">暂无趋势数据</div>'}</div>`;
   const ch=document.getElementById('mChart');
+  if(detailChart){ try{ detailChart.dispose(); }catch(e){} detailChart=null; }
   ch.innerHTML='';
-  let chartInst=null;
+  $('#mask').hidden=false; // 先显示弹窗，确保图表容器有可见尺寸后再初始化（避免 0 尺寸 canvas）
   if(d.s1){
     try{ const c=echarts.init(ch);
-    chartInst=c;
+    detailChart=c;
     const N=d.s1.length;
     c.setOption({animation:false,grid:{left:8,right:8,top:26,bottom:26,containLabel:true},
       tooltip:{trigger:'axis',axisPointer:{type:'cross',label:{backgroundColor:'#22304A',color:'#E8F0FE',fontSize:10}},
@@ -415,8 +417,7 @@ function openDetail(id){
     (p.t==='s'?'当前价来自商务部全国36城零售均价（周更）；':'')+
     (p.t==='d'?'该品种暂无杭州官方监测数据，当前价为全国参考演示值，周环比与趋势为模拟序列；':'')+
     '<br>曲线含义：价格走势（演示品种为按季节波动的模拟序列，正式版接入官方逐日/周监测后展示真实曲线）；红标=区间最高价、绿标=区间最低价；位置%=当前价在 min~max 区间的相对高度，仅作"贵不贵"参考。';
-  $('#mask').hidden=false;
-  if(chartInst){ setTimeout(()=>{ try{ chartInst.resize(); }catch(e){} },60); }
+  if(detailChart){ setTimeout(()=>{ try{ detailChart.resize(); }catch(e){} },80); }
 }
 
 /* ---- 展示地区 UI ---- */
