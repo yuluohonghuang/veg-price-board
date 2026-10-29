@@ -44,32 +44,40 @@ def api_req(url, method='GET', body=None, token=None):
 
 def main():
     token = get_token()
-    if not os.path.exists(JSON_PATH):
-        sys.exit('缺少数据文件: ' + JSON_PATH)
-    with open(JSON_PATH, 'rb') as f:
-        raw = f.read()
-    content_b64 = base64.b64encode(raw).decode('ascii')
+    # 推送清单：远端文件名 -> 本地路径（小程序 network 拉取三个同构数据文件）
+    FILES = [
+        ('province_retail.json', os.path.join(HERE, 'data', 'province_retail.json')),
+        ('prov_data.json', os.path.join(HERE, 'data', 'prov_data.json')),
+        ('extra_data.json', os.path.join(HERE, 'data', 'extra_data.json')),
+    ]
+    for fname, fpath in FILES:
+        if not os.path.exists(fpath):
+            print(f'跳过（本地无此文件）: {fpath}')
+            continue
+        api = f'https://api.github.com/repos/{OWNER}/{REPO}/contents/{fname}'
+        with open(fpath, 'rb') as f:
+            raw = f.read()
+        content_b64 = base64.b64encode(raw).decode('ascii')
 
-    # 1) 取当前文件 sha（已存在则更新需 sha；404 表示首次创建）
-    st, body = api_req(API, 'GET', None, token)
-    sha = None
-    if st == 200:
-        sha = json.loads(body).get('sha')
-        print('远端文件已存在, sha:', sha[:8])
-    elif st != 404:
-        sys.exit(f'GET 失败 {st}: {body[:200]}')
+        # 取当前文件 sha（已存在则更新需 sha；404 表示首次创建）
+        st, body = api_req(api, 'GET', None, token)
+        sha = None
+        if st == 200:
+            sha = json.loads(body).get('sha')
+        elif st != 404:
+            sys.exit(f'GET {fname} 失败 {st}: {body[:200]}')
 
-    payload = {'message': 'daily veg price data update', 'content': content_b64}
-    if sha:
-        payload['sha'] = sha
-    st, body = api_req(API, 'PUT', payload, token)
-    if st in (200, 201):
-        j = json.loads(body)
-        print('推送成功:', j.get('content', {}).get('path') or PATH)
-        print('commit:', j.get('commit', {}).get('sha', '')[:10])
-        print('URL: https://' + OWNER + '.github.io/' + REPO + '/' + PATH)
-    else:
-        sys.exit(f'PUT 失败 {st}: {body[:300]}')
+        payload = {'message': 'daily veg price data update', 'content': content_b64}
+        if sha:
+            payload['sha'] = sha
+        st, body = api_req(api, 'PUT', payload, token)
+        if st in (200, 201):
+            j = json.loads(body)
+            print(f'推送成功 {fname}: {os.path.getsize(fpath)} 字节')
+            print('  commit:', j.get('commit', {}).get('sha', '')[:10])
+            print('  URL: https://' + OWNER + '.github.io/' + REPO + '/' + fname)
+        else:
+            sys.exit(f'PUT {fname} 失败 {st}: {body[:300]}')
 
 if __name__ == '__main__':
     main()

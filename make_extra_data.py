@@ -79,9 +79,14 @@ def main():
     body = 'export const EXDATA = ' + json.dumps(obj, ensure_ascii=False, separators=(',', ':')) + ';\n'
     with open(OUT, 'w', encoding='utf-8') as f:
         f.write(body)
-    print('OK days=%d series=%s nat_date=%s retail=%s' % (
+    # 同构 JSON（供小程序 network 拉取，与 EXDATA 结构完全一致）
+    JSON_OUT = os.path.join(DATA_DIR, 'extra_data.json')
+    with open(JSON_OUT, 'w', encoding='utf-8') as f:
+        json.dump(obj, f, ensure_ascii=False, separators=(',', ':'))
+    print('OK days=%d series=%s nat_date=%s retail=%s json=%s' % (
         len(days), ','.join(k for k, v in series.items() if any(x is not None for x in v)),
-        nat['date'], retail['dateLabel'] or 'none'))
+        nat['date'], retail['dateLabel'] or 'none',
+        os.path.getsize(JSON_OUT)))
 
 
 if __name__ == '__main__':

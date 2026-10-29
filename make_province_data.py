@@ -117,3 +117,15 @@ print("写入:", OUT)
 print("省份:", len(provs), "有价品种项:", n_with_price, "带序列项:", n_with_series)
 sz = os.path.getsize(OUT)
 print("大小:", sz, "字节")
+
+# 同构 JSON（供小程序 network 拉取，与 PROV_DATA 结构完全一致）
+json_out = {
+    'date': str(data.get('date', '')),
+    'coeff': COEFF,
+    'unit': '元/500克（省级=批发÷2×' + str(COEFF) + ' 折算零售）',
+    'provs': provs,
+}
+JSON_OUT = os.path.join(HERE, 'data', 'prov_data.json')
+with open(JSON_OUT, 'w', encoding='utf-8', newline='\n') as f:
+    json.dump(json_out, f, ensure_ascii=False, separators=(',', ':'))
+print("写入:", JSON_OUT, os.path.getsize(JSON_OUT), "字节")

@@ -1,7 +1,10 @@
 import hbSDK from '@heybox/hb-sdk';
 import * as echarts from 'echarts';
-import { PROV_DATA } from './province_data.js';
-import { EXDATA } from './extra_data.js';
+import { PROV_DATA as _PROV_FALLBACK } from './province_data.js';
+import { EXDATA as _EXDATA_FALLBACK } from './extra_data.js';
+/* 数据引用可变：启动时尝试拉取远端（GitHub Pages 每日自动更新），失败回退内嵌快照 */
+let PROV_DATA = _PROV_FALLBACK;
+let EXDATA = _EXDATA_FALLBACK;
 window.echarts = echarts;
 window.__hbStorage = hbSDK && hbSDK.storage || null;
 if (window.__hbStorage && window.__hbStorage.setStorage) {
@@ -162,7 +165,10 @@ let spec=null; try{ const s=localStorage.getItem('vegSpec'); if(s&&s!=='null'){ 
 /* ---- 展示地区（vegRegion：auto=自动定位 / hz=杭州 / nation=全国 / 省码=省级折算价） ---- */
 let region='hz'; try{ region=localStorage.getItem('vegRegion')||'hz'; }catch(e){ region='hz'; }
 let located=null; // 自动定位结果 {prov,city}
-const REGION_NAMES=Object.assign({auto:'自动定位',hz:'杭州',nation:'全国'}, Object.fromEntries(Object.entries(PROV_DATA.provs).map(([k,v])=>[k,v.n])));
+let REGION_NAMES=Object.assign({auto:'自动定位',hz:'杭州',nation:'全国'}, Object.fromEntries(Object.entries(PROV_DATA.provs).map(([k,v])=>[k,v.n])));
+function rebuildRegionNames(){ // 远端数据替换后重建地区名表
+  REGION_NAMES=Object.assign({auto:'自动定位',hz:'杭州',nation:'全国'}, Object.fromEntries(Object.entries(PROV_DATA.provs).map(([k,v])=>[k,v.n])));
+}
 function isProvCode(r){ return !!PROV_DATA.provs[r]; }
 function saveRegion(){ try{ localStorage.setItem('vegRegion',region); }catch(e){} }
 function regionName(){ if(region==='auto'&&located) return located.city+'·'+located.prov; return REGION_NAMES[region]||'杭州'; }
@@ -484,7 +490,8 @@ $('#cats').addEventListener('click',e=>{
   b.classList.add('on'); cat=b.dataset.c||''; render();
 });
 
-/* 指数大数字卡 + 图表日期范围（EXDATA 真实数据） */
+/* 指数大数字卡 + 图表日期范围（EXDATA 真实数据；远端数据替换后可重跑） */
+function renderIndexCards(){
 try{
   const N=EXDATA.nat, D=EXDATA.idx;
   const lastOf=k=>{const a=(D[k]||[]).filter(v=>v!=null);return a.length?a[a.length-1]:null;};
@@ -500,11 +507,14 @@ try{
   });
   const range=document.getElementById('idxRange');
   if(range&&D.date&&D.date.length){ range.textContent='· 官方每日（'+D.date[0]+' ~ '+D.date[D.date.length-1]+'）'; }
-}catch(e){}
+}catch(e){}}
+renderIndexCards();
 
-/* 指数走势（农业农村部官方日度序列，ncpscxx 接口自动累积；点数<2 的指数不画） */
-try{(function(){
-  const c=echarts.init(document.getElementById('idxChart'));
+/* 指数走势（农业农村部官方日度序列，ncpscxx 接口自动累积；点数<2 的指数不画；远端替换后可重跑） */
+function renderIdxChart(){
+try{
+  const el=document.getElementById('idxChart');
+  const c=echarts.getInstanceByDom(el)||echarts.init(el);
   const D=DATA.idx;
   const SERIES_DEF=[
     {k:'p200',n:'200指数',c:'#49C0F0'},{k:'basket',n:'菜篮子',c:'#F7C948'},
@@ -527,7 +537,8 @@ try{(function(){
     xAxis:{type:'category',data:D.date,axisLabel:{color:'#93A3BC',fontSize:9},axisLine:{lineStyle:{color:'#22304A'}}},
     yAxis:{type:'value',scale:true,axisLabel:{color:'#93A3BC',fontSize:9},splitLine:{lineStyle:{color:'#18233A'}}},
     series:series});
-})();}catch(e){}
+}catch(e){}}
+renderIdxChart();
 
 /* 大米零售走势（真实） */
 try{(function(){
@@ -575,3 +586,42 @@ if (region === 'auto') {
     }
   });
 }
+
+/* ---- 远端数据动态加载（0.1.6）----
+   GitHub Actions 每日 02:30 更新 GitHub Pages 上的数据 JSON；
+   启动时拉取替换 PROV_DATA/EXDATA，失败回退内嵌快照（离线可用）。
+   数据源：https://yuluohonghuang.github.io/veg-price-data/  */
+async function _remoteGet(url){
+  try{
+    if(hbSDK&&hbSDK.network&&hbSDK.network.request){
+      const r=await hbSDK.network.request({url,method:'GET',timeout:15000});
+      return r&&r.data;
+    }
+  }catch(e){}
+  try{
+    if(window.fetch){
+      const r=await fetch(url);
+      if(!r.ok) return null;
+      return await r.json();
+    }
+  }catch(e){}
+  return null;
+}
+async function loadRemoteData(){
+  const [pd, ed]=await Promise.all([
+    _remoteGet('https://yuluohonghuang.github.io/veg-price-data/prov_data.json'),
+    _remoteGet('https://yuluohonghuang.github.io/veg-price-data/extra_data.json')
+  ]);
+  let ok=false;
+  if(pd&&pd.date&&pd.provs){ PROV_DATA=pd; ok=true; }
+  if(ed&&ed.idx&&ed.nat){ EXDATA=ed; try{ DATA.idx=EXDATA.idx; }catch(e){} ok=true; }
+  if(ok){
+    rebuildRegionNames();
+    renderIndexCards(); renderIdxChart();
+    updateMeta(); render(); renderHero(); syncRegionCards();
+    toast('已更新至最新数据（'+PROV_DATA.date+'）');
+  }else{
+    toast('实时数据拉取失败，本次用内置数据（离线可用）');
+  }
+}
+loadRemoteData();
