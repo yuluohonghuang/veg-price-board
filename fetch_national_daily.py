@@ -9,6 +9,13 @@ import urllib.request, urllib.parse, ssl, gzip, json, os, re, sys, time, datetim
 
 BASE_SCS = 'https://scs.moa.gov.cn'
 BASE_NCPS = 'https://ncpscxx.moa.gov.cn'
+BASE_PFS = 'https://pfsc.agri.cn'
+# pfsc 门户指数日序列 -> national_daily 的指数名（用于补齐漏跑日期的指数）
+PFS_IDX_MAP = {
+    'agriculture': '农产品批发价格200指数',
+    'grainAndOil': '粮油产品批发价格指数',
+    'vegetableBasket': '“菜篮子”产品批发价格指数',
+}
 UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/147.0.0.0 Safari/537.36'
 CTX = ssl.create_default_context(); CTX.check_hostname = False; CTX.verify_mode = ssl.CERT_NONE
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -69,6 +76,59 @@ def fetch_indexes():
             if name and val is not None and name not in out:
                 out[name] = float(val)
     return out
+
+
+def fetch_pfs_index_history(pages=2, size=60, retry=2):
+    """pfsc 门户指数日序列（按发布日返回最近 N 天）：{YYYY-MM-DD: {agriculture, grainAndOil, vegetableBasket}}
+    用途：某天漏跑时，指数仍可从上游补齐，不必等下一次快照；只补指数，不含肉蛋/蔬菜均价等稿件字段"""
+    url = BASE_PFS + '/price_portal/pi-info-day/getPortalPiInfoDay'
+    h = {'User-Agent': UA, 'Accept': 'application/json, text/plain, */*',
+         'Origin': BASE_PFS, 'Referer': BASE_PFS + '/', 'Content-Type': 'application/json'}
+    out = {}
+    for pn in range(1, pages + 1):
+        last = None
+        for i in range(retry + 1):
+            try:
+                body = json.dumps({'pageNum': pn, 'pageSize': size}).encode()
+                req = urllib.request.Request(url, data=body, headers=h, method='POST')
+                with urllib.request.urlopen(req, timeout=25, context=CTX) as resp:
+                    d = resp.read()
+                    if resp.headers.get('Content-Encoding') == 'gzip':
+                        d = gzip.decompress(d)
+                    j = json.loads(d.decode('utf-8', 'ignore'))
+                for it in j.get('content') or []:
+                    day = str(it.get('publishDate') or '')
+                    if len(day) == 10:
+                        out[day] = it
+                last = None
+                break
+            except Exception as e:
+                last = e
+                time.sleep(5.0)
+        if last is not None:
+            raise last
+    return out
+
+
+def backfill_indexes(db, hist):
+    """把 pfsc 指数日序列并入 national_daily：仅填补缺失的指数值，不覆盖已有数据"""
+    filled = 0
+    days_added = 0
+    for day, it in hist.items():
+        rec = db.get(day)
+        if rec is None:
+            rec = {'date': day}
+            db[day] = rec
+            days_added += 1
+        idx = rec.setdefault('indexes', {})
+        for src, dst in PFS_IDX_MAP.items():
+            v = it.get(src)
+            if v is None:
+                continue
+            if idx.get(dst) is None:
+                idx[dst] = float(v)
+                filled += 1
+    return filled, days_added
 
 
 def fetch_scs_article():
@@ -156,6 +216,13 @@ def main():
             db = json.load(open(OUT, encoding='utf-8'))
         except Exception:
             db = {}
+    # 0) 指数历史补齐：pfsc 门户按发布日提供近 90 天指数，漏跑日期也能补回，避免序列断点
+    try:
+        pfs_hist = fetch_pfs_index_history()
+        filled, added = backfill_indexes(db, pfs_hist)
+        print('PFS_BACKFILL covered=%d days filled=%d values new_days=%d' % (len(pfs_hist), filled, added))
+    except Exception as e:
+        print('PFS_BACKFILL_FAIL', str(e)[:120])
     # 1) 指数
     try:
         indexes = fetch_indexes()
