@@ -78,7 +78,7 @@ def fetch_indexes():
     return out
 
 
-def fetch_pfs_index_history(pages=2, size=60, retry=2):
+def fetch_pfs_index_history(pages=1, size=60, retry=2):
     """pfsc 门户指数日序列（按发布日返回最近 N 天）：{YYYY-MM-DD: {agriculture, grainAndOil, vegetableBasket}}
     用途：某天漏跑时，指数仍可从上游补齐，不必等下一次快照；只补指数，不含肉蛋/蔬菜均价等稿件字段"""
     url = BASE_PFS + '/price_portal/pi-info-day/getPortalPiInfoDay'
