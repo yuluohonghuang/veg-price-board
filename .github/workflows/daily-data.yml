@@ -53,7 +53,6 @@ jobs:
       - name: Regenerate data files
         run: |
           python -u make_province_data.py
-          python -u make_remote_json.py
           python -u make_extra_data.py
 
       - name: Setup Node
