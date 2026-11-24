@@ -5,6 +5,9 @@
 node_modules/
 dist/
 
+# 每日中间快照：抓取步骤生成、同一次运行内被 make_province_data.py 消费，不重复入库
+data/province_prices.json
+
 # 一次性探索/调试脚本
 probe_*.py
 diag_*.py
