@@ -22,6 +22,11 @@ on:
 permissions:
   contents: write
 
+# 同一时间只允许一个抓取任务运行，后到的排队，避免两次运行同时回写互相顶掉
+concurrency:
+  group: daily-veg-data
+  cancel-in-progress: false
+
 jobs:
   fetch-and-build:
     runs-on: ubuntu-latest
@@ -70,12 +75,30 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/ src/
-          if ! git diff --cached --quiet; then
-            git commit -m "daily data update $(date -u +%Y-%m-%d)"
-            git push
-          else
+          if git diff --cached --quiet; then
             echo "no data change, skip commit"
+            exit 0
           fi
+          git commit -m "daily data update $(date -u +%Y-%m-%d)"
+          for i in 1 2 3; do
+            if git push; then
+              echo "PUSH_OK attempt=$i"
+              exit 0
+            fi
+            echo "push rejected, sync with origin/main (attempt $i)"
+            git fetch origin main || sleep 20
+            if git rebase origin/main; then
+              echo "rebase clean"
+            else
+              echo "rebase conflict, keep freshly generated data"
+              git checkout --theirs -- data/ src/ || true
+              git add data/ src/ || true
+              GIT_EDITOR=true git rebase --continue || git rebase --abort
+            fi
+            sleep 15
+          done
+          echo "PUSH_FAILED"
+          exit 1
 
       - name: Push remote JSON to veg-price-data
         env:
