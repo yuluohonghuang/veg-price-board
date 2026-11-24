@@ -1,14 +1,30 @@
 # -*- coding: utf-8 -*-
-"""把远端 province_retail.json（昨日折算零售快照）反算批发原值并入历史序列首日点
-用途：pfsc 无历史曲线接口，历史序列靠每日快照累积；首版曲线需要至少 2 个点，
-远端 JSON 里的昨日(10-21)折算零售价可反算批发原值(批发=零售/1.15*2)作为第一个点。
+"""把远端快照（prov_data.json）里的折算零售价反算批发原值，并入历史序列
+
+用途：pfsc 无历史曲线接口，历史序列靠每日快照累积，首版曲线需要至少 2 个点。
+远端 prov_data.json 与停产推送的 province_retail.json 结构同构（{date, coeff, provs:{省码:{n, items:{品种:{r,...}}}}}），
+主用 prov_data.json（每日更新），province_retail.json 作为旧版回退（该文件自 2026-11-24 起不再更新）。
+
+用法：
+  python merge_remote_into_history.py                # 写回 data/province_history.json
+  python merge_remote_into_history.py --dry-run      # 只统计不写盘
+  python merge_remote_into_history.py --hist <path>  # 指定历史文件（便于试跑副本）
 """
-import json, os, urllib.request
+import json, os, sys, time, urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 HIST = os.path.join(HERE, 'data', 'province_history.json')
-REMOTE = 'https://yuluohonghuang.github.io/veg-price-data/province_retail.json'
+REMOTES = [
+    'https://yuluohonghuang.github.io/veg-price-data/prov_data.json',
+    'https://yuluohonghuang.github.io/veg-price-data/province_retail.json',
+]
 COEFF = 1.15
+
+ARGS = sys.argv[1:]
+DRY_RUN = '--dry-run' in ARGS
+if '--hist' in ARGS:
+    HIST = os.path.abspath(ARGS[ARGS.index('--hist') + 1])
+
 # 远端 JSON 的 provs key 是省码（bj/zj/...），历史文件 key 是省名（浙江/北京/...）
 REV_MAP = {
     'bj': '北京', 'tj': '天津', 'heb': '河北', 'sxs': '山西', 'nmg': '内蒙古',
@@ -19,17 +35,47 @@ REV_MAP = {
     'xz': '西藏', 'sx': '陕西', 'gs': '甘肃', 'qh': '青海', 'nx': '宁夏', 'xj': '新疆',
 }
 
-with urllib.request.urlopen(REMOTE, timeout=20) as resp:
-    remote = json.loads(resp.read().decode('utf-8'))
+
+def fetch_remote():
+    last = None
+    for idx, url in enumerate(REMOTES):
+        for attempt in (1, 2, 3):
+            try:
+                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=90) as resp:
+                    data = json.loads(resp.read().decode('utf-8'))
+                if data.get('provs'):
+                    print('远端来源:', url, f'(第{attempt}次)')
+                    if idx > 0:
+                        print('注意: 已回退到旧文件，其内容自 2026-11-24 起不再更新，可能过期')
+                    return data
+                last = f'{url} 无 provs'
+                break
+            except Exception as e:
+                last = f'{url} 失败: {e}'
+                print(f'第{attempt}次失败:', last)
+                if attempt < 3:
+                    time.sleep(2)
+        print('回退:', last)
+    sys.exit(f'远端数据不可用: {last}')
+
+
+remote = fetch_remote()
 rdate = remote.get('date', '')
-print("远端日期:", rdate)
+coeff = remote.get('coeff') or COEFF
+print('远端日期:', rdate, 'coeff:', coeff)
+if not rdate:
+    sys.exit('远端缺少 date，放弃写入')
 
 hist = json.load(open(HIST, encoding='utf-8'))
 # 清理上一轮误写入的省码 key（其数据并入省名 key）
 for code in REV_MAP:
     if code in hist:
         del hist[code]
+
 added = 0
+updated = 0
+skipped = 0
 for code, pv in remote.get('provs', {}).items():
     pname = REV_MAP.get(code)
     if not pname or not isinstance(pv, dict):
@@ -38,15 +84,18 @@ for code, pv in remote.get('provs', {}).items():
     for vn, it in pv.get('items', {}).items():
         r = it.get('r')
         if r is None:
+            skipped += 1
             continue
-        wh = round(r / COEFF * 2.0, 2)  # 折算零售 → 批发原值
+        wh = round(r / coeff * 2.0, 2)  # 折算零售 → 批发原值
         h = hprov.setdefault(vn, {'dates': [], 'prices': []})
         if rdate in h['dates']:
             h['prices'][h['dates'].index(rdate)] = wh
+            updated += 1
         else:
             h['dates'].append(rdate)
             h['prices'].append(wh)
             added += 1
+
 # 每省按日期排序（插入首日点后保持升序）
 for pname, pv in hist.items():
     if pname == '_meta' or not isinstance(pv, dict):
@@ -56,6 +105,11 @@ for pname, pv in hist.items():
             z = sorted(zip(it['dates'], it['prices']))
             it['dates'], it['prices'] = [x[0] for x in z], [x[1] for x in z]
 hist['_meta'] = dict(hist.get('_meta', {}), backfilled=rdate)
-with open(HIST, 'w', encoding='utf-8') as f:
-    json.dump(hist, f, ensure_ascii=False, indent=1)
-print("已并入首日点:", added, "->", HIST)
+
+print(f'新增点 {added} / 覆盖同日期点 {updated} / 无价跳过 {skipped}')
+if DRY_RUN:
+    print('DRY_RUN：未写入', HIST)
+else:
+    with open(HIST, 'w', encoding='utf-8') as f:
+        json.dump(hist, f, ensure_ascii=False, indent=1)
+    print('已写入', HIST)
